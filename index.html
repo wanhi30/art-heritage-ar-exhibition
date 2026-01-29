@@ -67,7 +67,7 @@
           
           // --- EDIT THESE VALUES IF GREEN IS STILL VISIBLE ---
           // Increase this to remove more green (Try 0.48, 0.50, 0.52)
-          similarity: { type: 'float', default: 0.48, is: 'uniform' }, 
+          similarity: { type: 'float', default: 0.53, is: 'uniform' }, 
           // Decrease this to make edges sharper (Try 0.01 or 0.001)
           smoothness: { type: 'float', default: 0.01, is: 'uniform' },
           // --------------------------------------------------
@@ -97,7 +97,7 @@
     
     <div id="overlay">
       <button id="start-btn">INITIALIZE SYSTEM</button>
-      <p style="color: #666; font-size: 12px; margin-top: 15px;"></p>
+      <p style="color: #666; font-size: 12px; margin-top: 15px;">Tap anywhere to enter</p>
       <p style="color: #444; font-size: 10px; margin-top: 30px; max-width: 250px;">
         Troubleshoot: If screen is black, press Home button and return to browser.
       </p>
@@ -197,3 +197,4 @@
     </script>
   </body>
 </html>
+
