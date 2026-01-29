@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pro AR Experience</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+    <style>
+      /* 2. UI & STYLING */
+      body { margin: 0; overflow: hidden; background: black; }
+      
+      /* Hide Standard MindAR UI */
+      .mindar-ui-overlay, .mindar-ui-loading, .mindar-ui-scanning { 
+        display: none !important; 
+      }
+
+      /* START SCREEN OVERLAY */
+      #overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: black; z-index: 9999;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        transition: opacity 0.5s;
+      }
+      #start-btn {
+        padding: 16px 32px; font-size: 18px; font-weight: bold;
+        color: #13ff08; /* Your Green */
+        background: transparent; border: 2px solid #13ff08; 
+        border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+      }
+      
+      /* DEBUG STATUS BAR (Top of screen) */
+      #status-bar {
+        position: fixed; top: 0; left: 0; width: 100%;
+        background: rgba(0,0,0,0.5); color: white;
+        text-align: center; font-family: monospace; font-size: 14px; padding: 8px 0;
+        z-index: 5000; pointer-events: none;
+      }
+      
+      .hidden { opacity: 0; pointer-events: none; }
+    </style>
+
+    <script>
+      AFRAME.registerShader('chromakey', {
+        schema: {
+          src: { type: 'map', is: 'uniform' },
+          // Your specific green: #13ff08 converted to vector (0.07, 1.0, 0.03)
+          color: { type: 'vec3', default: { x: 0.075, y: 1.0, z: 0.031 }, is: 'uniform' },
+          similarity: { type: 'float', default: 0.38, is: 'uniform' }, // Tuned for better edge
+          smoothness: { type: 'float', default: 0.1, is: 'uniform' },
+          // OPACITY UNIFORM (Critical for Fade-In Effect)
+          opacity: { type: 'float', default: 0.0, is: 'uniform' } 
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          uniform sampler2D src; uniform vec3 color; uniform float similarity; uniform float smoothness; uniform float opacity; 
+          varying vec2 vUv;
+          void main() {
+            vec4 texColor = texture2D(src, vUv);
+            float dist = length(texColor.rgb - color);
+            float mask = smoothstep(similarity, similarity + smoothness, dist);
+            // Multiply alpha by our custom 'opacity' value to allow fading
+            gl_FragColor = vec4(texColor.rgb, texColor.a * mask * opacity);
+          }
+        `
+      });
+    </script>
+  </head>
+  <body>
+
+    <div id="status-bar">Status: Waiting for User...</div>
+
+    <div id="overlay">
+      <button id="start-btn">ENTER AR</button>
+      <p style="color: gray; margin-top: 10px; font-size: 12px;">Ensure volume is ON</p>
+    </div>
+
+    <a-scene 
+      mindar-image="imageTargetSrc: targets.mind; filterMinCF:0.0001; filterBeta: 0.001; missTolerance: 10; uiLoading: no; uiScanning: no;" 
+      color-space="sRGB" 
+      renderer="colorManagement: true, physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false">
+
+      <a-assets>
+        <video 
+          id="vid" 
+          src="asset.mp4" 
+          preload="auto" 
+          loop="true" 
+          crossorigin="anonymous" 
+          playsinline 
+          webkit-playsinline>
+        </video>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <a-entity mindar-image-target="targetIndex: 0" id="target-entity">
+        
+        <a-plane 
+          id="video-plane"
+          material="shader: chromakey; src: #vid; color: 0.075 1.0 0.031; opacity: 0" 
+          position="0 0 0" 
+          height="0.352" 
+          width="1" 
+          rotation="0 0 0"
+          animation__fadein="property: material.opacity; from: 0; to: 1; dur: 1500; startEvents: fadein"
+          animation__fadeout="property: material.opacity; from: 1; to: 0; dur: 500; startEvents: fadeout">
+        </a-plane>
+
+      </a-entity>
+    </a-scene>
+
+    <script>
+      const startBtn = document.querySelector('#start-btn');
+      const overlay = document.querySelector('#overlay');
+      const vid = document.querySelector('#vid');
+      const status = document.querySelector('#status-bar');
+      const target = document.querySelector('#target-entity');
+      const plane = document.querySelector('#video-plane');
+
+      // --- STEP 1: INITIALIZE ---
+      startBtn.addEventListener('click', () => {
+        overlay.classList.add('hidden');
+        status.innerText = "Status: Initializing Camera...";
+        
+        // "Warm up" the video (Play then immediately pause)
+        // This unlocks the audio/video permissions on iOS
+        vid.play().then(() => {
+          vid.pause();
+          vid.currentTime = 0;
+          status.innerText = "Status: Scanning... Point at Art";
+        }).catch((e) => {
+          status.innerText = "Error: Video blocked by browser settings";
+          status.style.color = "red";
+          console.error(e);
+        });
+      });
+
+      // --- STEP 2: TARGET FOUND ---
+      target.addEventListener('targetFound', () => {
+        status.innerText = "Status: TARGET FOUND - Playing";
+        status.style.color = "#13ff08"; // Green text
+        
+        // Play Video
+        vid.play();
+        
+        // Trigger Fade-In Animation
+        plane.emit('fadein');
+      });
+
+      // --- STEP 3: TARGET LOST ---
+      target.addEventListener('targetLost', () => {
+        status.innerText = "Status: Scanning...";
+        status.style.color = "white";
+        
+        // Trigger Fade-Out Animation (Optional: makes it smoother)
+        plane.emit('fadeout');
+        
+        // Pause video to save battery/performance
+        setTimeout(() => {
+          vid.pause();
+        }, 500); // Wait 0.5s for fade out before cutting video
+      });
+      
+      // --- STEP 4: ERROR HANDLING ---
+      vid.addEventListener('error', (e) => {
+        status.innerText = "CRITICAL: Video File Failed to Load!";
+        status.style.background = "red";
+      });
+    </script>
+  </body>
+</html>
