@@ -47,12 +47,15 @@
 
       /* GUIDE BOX (Suggestion #1) */
       #guide-box {
-        position: fixed; top: 90%; left: 90%;
-        width: 55vw; height: 75vw; /* Rough shape of your panorama */
+        position: fixed; top: 50%; left: 50%;
+        width: 70vw; height: 30vw; /* Rough shape of your panorama */
         transform: translate(-50%, -50%);
         border: 2px dashed rgba(255, 255, 255, 0.3);
         border-radius: 10px; pointer-events: none;
         display: none; /* Hidden until start */
+        transition: opacity 0.5s;
+        display: flex; flex-direction: column; 
+        justify-content: center; align-items: center; text-align: center;
       }
 
       .hidden { display: none !important; opacity: 0; }
@@ -103,7 +106,14 @@
       </p>
     </div>
 
-    <div id="guide-box"></div>
+    <div id="guide-box">
+    <p style="color: white; font-size: 12px; opacity: 0.7; margin: 0; padding: 10px;">
+      Scan the Artwork
+    </p>
+    <p style="color: #ff4444; font-size: 10px; font-weight: bold; margin-top: 5px; opacity: 0.9;">
+      If video is Blank:<br>PRESS HOME BUTTON, THEN RETURN.
+    </p>
+  </div>
 
     <a-scene 
       mindar-image="imageTargetSrc: targets.mind; filterMinCF:0.0001; filterBeta: 0.01; missTolerance: 5; uiLoading: no; uiScanning: no;" 
@@ -171,7 +181,7 @@
       // 2. TARGET FOUND
       target.addEventListener('targetFound', () => {
         statusText.innerHTML = '<span class="status-found">● Status: TARGET LOCKED</span>';
-        guideBox.style.borderColor = "#13ff08"; // Turn guide green
+        guideBox.style.opacity = "0"; // Turn guide green
         
         vid.play();
         plane.emit('fadein');
@@ -180,7 +190,7 @@
       // 3. TARGET LOST
       target.addEventListener('targetLost', () => {
         statusText.innerHTML = '<span class="status-waiting">● Status: SEARCHING...</span>';
-        guideBox.style.borderColor = "rgba(255,255,255,0.3)"; // Return guide to white
+        guideBox.style.opacity = "1"; // Return guide to white
         
         plane.emit('fadeout');
         // Delay pause to allow fade out
@@ -197,6 +207,7 @@
     </script>
   </body>
 </html>
+
 
 
 
