@@ -9,10 +9,6 @@
     <style>
       /* UI STYLES */
       body { margin: 0; overflow: hidden; background: black; font-family: 'Courier New', Courier, monospace; }
-
-      .a-enter-vr-button {
-        display: none !important;
-      }
       
       /* Hide the default loading screen so we can use our own */
       .mindar-ui-overlay, .mindar-ui-loading, .mindar-ui-scanning { display: none !important; }
@@ -51,8 +47,8 @@
 
       /* GUIDE BOX (Suggestion #1) */
       #guide-box {
-        position: fixed; top: 50%; left: 50%;
-        width: 50vw; height: 75vw; /* Rough shape of your panorama */
+        position: fixed; top: 90%; left: 90%;
+        width: 55vw; height: 75vw; /* Rough shape of your panorama */
         transform: translate(-50%, -50%);
         border: 2px dashed rgba(255, 255, 255, 0.3);
         border-radius: 10px; pointer-events: none;
@@ -101,7 +97,7 @@
     
     <div id="overlay">
       <button id="start-btn">INITIALIZE SYSTEM</button>
-      <p style="color: #666; font-size: 12px; margin-top: 15px;">Tap anywhere to enter</p>
+      <p style="color: #666; font-size: 12px; margin-top: 15px;">TAP TO ENTER</p>
       <p style="color: #444; font-size: 10px; margin-top: 30px; max-width: 250px;">
         Troubleshoot: If screen is black, press Home button and return to browser.
       </p>
@@ -201,5 +197,6 @@
     </script>
   </body>
 </html>
+
 
 
