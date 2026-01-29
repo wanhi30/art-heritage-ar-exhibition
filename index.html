@@ -2,45 +2,76 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AR Experience</title>
+    <title>Exhibition AR Master</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
       /* UI STYLES */
-      body { margin: 0; overflow: hidden; background: black; }
+      body { margin: 0; overflow: hidden; background: black; font-family: 'Courier New', Courier, monospace; }
+      
+      /* Hide the default loading screen so we can use our own */
       .mindar-ui-overlay, .mindar-ui-loading, .mindar-ui-scanning { display: none !important; }
 
-      /* OVERLAY SCREEN */
+      /* MAIN OVERLAY */
       #overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: black; z-index: 9999;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        text-align: center;
-        padding: 20px;
+        transition: opacity 0.5s;
+      }
+
+      /* BUTTON STYLE */
+      #start-btn {
+        padding: 15px 40px; font-size: 20px; font-weight: bold; letter-spacing: 2px;
+        color: #13ff08; background: transparent; 
+        border: 2px solid #13ff08; border-radius: 5px; 
+        cursor: pointer; text-transform: uppercase;
+        box-shadow: 0 0 10px #13ff0844;
+      }
+      #start-btn:active { background: #13ff08; color: black; }
+
+      /* STATUS BAR (The "Detector") */
+      #status-bar {
+        position: fixed; top: 0; left: 0; width: 100%;
+        background: rgba(0, 0, 0, 0.7); 
+        color: white; padding: 10px 0;
+        text-align: center; font-size: 14px; font-weight: bold;
+        z-index: 5000; border-bottom: 1px solid #333;
       }
       
-      #start-btn {
-        padding: 16px 40px; font-size: 20px; font-weight: bold;
-        color: #13ff08; background: transparent; border: 2px solid #13ff08; 
-        border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
-        margin-bottom: 20px;
+      /* STATUS INDICATOR COLORS */
+      .status-waiting { color: yellow; }
+      .status-found { color: #13ff08; text-shadow: 0 0 5px #13ff08; }
+      .status-error { color: red; }
+
+      /* GUIDE BOX (Suggestion #1) */
+      #guide-box {
+        position: fixed; top: 50%; left: 50%;
+        width: 70vw; height: 30vw; /* Rough shape of your panorama */
+        transform: translate(-50%, -50%);
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 10px; pointer-events: none;
+        display: none; /* Hidden until start */
       }
 
-      /* TROUBLESHOOTING TEXT */
-      .help-text { color: gray; font-family: sans-serif; font-size: 14px; margin-bottom: 5px; }
-      .warning-text { color: #ff4444; font-family: sans-serif; font-size: 12px; margin-top: 20px; max-width: 300px; line-height: 1.4; }
-
-      .hidden { display: none !important; }
+      .hidden { display: none !important; opacity: 0; }
     </style>
 
     <script>
       AFRAME.registerShader('chromakey', {
         schema: {
           src: { type: 'map', is: 'uniform' },
+          // COLOR: #13ff08 -> RGB(0.075, 1.0, 0.031)
           color: { type: 'vec3', default: { x: 0.075, y: 1.0, z: 0.031 }, is: 'uniform' },
-          similarity: { type: 'float', default: 0.46, is: 'uniform' }, /* Increased to 0.46 to kill more green */
-          smoothness: { type: 'float', default: 0.04, is: 'uniform' }, /* Lowered to 0.04 for sharper edges */
+          
+          // --- EDIT THESE VALUES IF GREEN IS STILL VISIBLE ---
+          // Increase this to remove more green (Try 0.48, 0.50, 0.52)
+          similarity: { type: 'float', default: 0.48, is: 'uniform' }, 
+          // Decrease this to make edges sharper (Try 0.01 or 0.001)
+          smoothness: { type: 'float', default: 0.01, is: 'uniform' },
+          // --------------------------------------------------
+          
           opacity: { type: 'float', default: 0.0, is: 'uniform' } 
         },
         vertexShader: `
@@ -62,21 +93,22 @@
   </head>
   <body>
 
+    <div id="status-bar"><span class="status-waiting">● Status: Waiting for Start...</span></div>
+    
     <div id="overlay">
-      <button id="start-btn">ENTER AR</button>
-      <p class="help-text">Turn Volume UP</p>
-      
-      <p class="warning-text">
-        ⚠️ <b>Troubleshooting:</b><br>
-        If video screen is blank:<br>
-        Press your phone's <b>Home/Back</b> button, then return to this page.
+      <button id="start-btn">INITIALIZE SYSTEM</button>
+      <p style="color: #666; font-size: 12px; margin-top: 15px;"></p>
+      <p style="color: #444; font-size: 10px; margin-top: 30px; max-width: 250px;">
+        Troubleshoot: If screen is black, press Home button and return to browser.
       </p>
     </div>
+
+    <div id="guide-box"></div>
 
     <a-scene 
       mindar-image="imageTargetSrc: targets.mind; filterMinCF:0.0001; filterBeta: 0.01; missTolerance: 5; uiLoading: no; uiScanning: no;" 
       color-space="sRGB" 
-      renderer="colorManagement: true, physicallyCorrectLights" 
+      renderer="colorManagement: true, physicallyCorrectLights, alpha: true" 
       vr-mode-ui="enabled: false" 
       device-orientation-permission-ui="enabled: false">
 
@@ -98,12 +130,12 @@
       <a-entity mindar-image-target="targetIndex: 0" id="target-entity">
         <a-plane 
           id="video-plane"
-          material="shader: chromakey; src: #vid; color: 0.075 1.0 0.031; opacity: 0" 
+          material="shader: chromakey; src: #vid; transparent: true; opacity: 0" 
           position="0 0 0" 
           height="0.352" 
           width="1" 
           rotation="0 0 0"
-          animation__fadein="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein"
+          animation__fadein="property: material.opacity; from: 0; to: 1; dur: 800; startEvents: fadein"
           animation__fadeout="property: material.opacity; from: 1; to: 0; dur: 300; startEvents: fadeout">
         </a-plane>
       </a-entity>
@@ -113,37 +145,54 @@
       const startBtn = document.querySelector('#start-btn');
       const overlay = document.querySelector('#overlay');
       const vid = document.querySelector('#vid');
+      const statusText = document.querySelector('#status-bar');
       const target = document.querySelector('#target-entity');
       const plane = document.querySelector('#video-plane');
+      const guideBox = document.querySelector('#guide-box');
 
-      // 1. MOBILE WAKE-UP FUNCTION
+      // 1. SYSTEM START
       startBtn.addEventListener('click', () => {
         overlay.classList.add('hidden');
+        guideBox.style.display = "block"; // Show the guide box
         
-        // Trick: Play muted for a split second to wake up the video engine
-        vid.muted = false; // Try to unmute
+        statusText.innerHTML = '<span class="status-waiting">● Status: Initializing Camera...</span>';
+        
+        // Mobile wake-up trick
+        vid.muted = false;
         vid.play().then(() => {
           vid.pause();
           vid.currentTime = 0;
-        }).catch((error) => {
-            console.log("Autoplay blocked, waiting for target...");
+          statusText.innerHTML = '<span class="status-waiting">● Status: Scanning... Point at Art</span>';
+        }).catch((e) => {
+          statusText.innerHTML = '<span class="status-error">⚠ Error: Video Autoplay Blocked</span>';
         });
       });
 
       // 2. TARGET FOUND
       target.addEventListener('targetFound', () => {
-        console.log("Target Found");
+        statusText.innerHTML = '<span class="status-found">● Status: TARGET LOCKED</span>';
+        guideBox.style.borderColor = "#13ff08"; // Turn guide green
+        
         vid.play();
         plane.emit('fadein');
       });
 
       // 3. TARGET LOST
       target.addEventListener('targetLost', () => {
-        console.log("Target Lost");
+        statusText.innerHTML = '<span class="status-waiting">● Status: SEARCHING...</span>';
+        guideBox.style.borderColor = "rgba(255,255,255,0.3)"; // Return guide to white
+        
         plane.emit('fadeout');
+        // Delay pause to allow fade out
         setTimeout(() => {
           vid.pause();
         }, 300);
+      });
+
+      // 4. ERROR HANDLING
+      vid.addEventListener('error', (e) => {
+        statusText.innerHTML = '<span class="status-error">⚠ CRITICAL: Video File Error</span>';
+        console.error("Video Error:", vid.error);
       });
     </script>
   </body>
